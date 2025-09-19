@@ -12,7 +12,6 @@ const canvas = document.getElementById('glCanvas');
 const gl = canvas.getContext('webgl2');
 let shader;   // shader program
 let vao;      // vertex array object
-let vbo;
 
 let offsetX = 0.0;
 let offsetY = 0.0;
@@ -31,7 +30,7 @@ function initWebGL() {
 
     // Initialize WebGL settings
     gl.viewport(0, 0, canvas.width, canvas.height);
-    gl.clearColor(0.0, 0.0, 0.0, 0.0);
+    gl.clearColor(0.0, 0.0, 0.0, 1.0);
     
     return true;
 }
@@ -43,52 +42,46 @@ async function initShader() {
 }
 
 function setupKeyboardEvents() {
-    document.addEventListener('keydown', (event) => {
+    window.addEventListener('keydown', (event) => {
         if (event.key === "ArrowUp") {
             offsetY += step;
-            updateText(textOverlay3, "ArrowUp pressed");
         }
         else if (event.key === "ArrowDown") {
             offsetY -= step;
-            updateText(textOverlay3, "ArrowDown pressed");
         }
         else if (event.key === "ArrowLeft") {
             offsetX -= step;
-            updateText(textOverlay3, "ArrowLeft pressed");
         }
         else if (event.key === "ArrowRight") {
             offsetX += step;
-            updateText(textOverlay3, "ArrowRight pressed");
         }
     });
 }
 
 function setupBuffers() {
-
+    const vertices = new Float32Array([
+        -0.2, -0.2, 0.0,  // bottom left
+         0.2, -0.2, 0.0,  // bottom right
+        -0.2,  0.2, 0.0,  // top left
+         0.2,  0.2, 0.0   // top right
+    ]);
+   
     vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-
-    shader.setAttribPointer('aPos', 3, gl.FLOAT, false, 0, 0);
-}
-
-function updateVertices() {
-    const vertices = new Float32Array([
-        -0.1 + offsetX, -0.1 + offsetY, 0.0,  // bottom left
-         0.1 + offsetX, -0.1 + offsetY, 0.0,  // bottom right
-        -0.1 + offsetX,  0.1 + offsetY, 0.0,  // top left
-         0.1 + offsetX,  0.1 + offsetY, 0.0   // top right
-    ]);
-
+    const vbo = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
     gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+    shader.setAttribPointer('aPos', 3, gl.FLOAT, false, 0, 0);
 }
 
 function render() {
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    updateVertices();
+    shader.setVec4("uColor", [1.0, 0.0, 0.0, 1.0]);
+
+    shader.setVec2("uOffset", [offsetX, offsetY]);
 
     gl.bindVertexArray(vao);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
