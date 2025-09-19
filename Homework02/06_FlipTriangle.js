@@ -15,7 +15,7 @@ let vao;      // vertex array object
 
 let offsetX = 0.0;
 let offsetY = 0.0;
-const step = 0.01; // 이동 간격
+const step = 0.1; // 이동 간격
 
 function initWebGL() {
     if (!gl) {
