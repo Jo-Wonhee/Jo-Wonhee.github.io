@@ -13,9 +13,11 @@ const gl = canvas.getContext('webgl2');
 let shader;   // shader program
 let vao;      // vertex array object
 
+// 사각형의 중앙 좌표
 let offsetX = 0.0;
 let offsetY = 0.0;
-const step = 0.01; // 이동 간격
+// 이동 간격
+const step = 0.01; 
 
 function initWebGL() {
     if (!gl) {
@@ -55,9 +57,10 @@ function setupKeyboardEvents() {
         else if (event.key === "ArrowRight") {
             offsetX += step;
         }
-
-        offsetX = clamp(offsetX, -0.9, 0.9);
-        offsetY = clamp(offsetY, -0.9, 0.9);
+       
+        //사각형이 캔버스 밖으로 나가지 않도록 제한
+        offsetX = Math.max(Math.min(offsetX, 0.9), -0.9);
+        offsetY = Math.max(Math.min(offsetY, 0.9), -0.9);
     });
 }
 
@@ -84,6 +87,7 @@ function render() {
 
     shader.setVec4("uColor", [1.0, 0.0, 0.0, 1.0]);
 
+    // vertex shader로 변수 보내기
     shader.setVec2("uOffset", [offsetX, offsetY]);
 
     gl.bindVertexArray(vao);
