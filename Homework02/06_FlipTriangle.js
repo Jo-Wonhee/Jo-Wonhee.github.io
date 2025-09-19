@@ -5,8 +5,8 @@
    : 'r' for red, 'g' for green, 'b' for blue
 2) Flip the triangle vertically by keyboard input 'f' 
 ---------------------------------------------------------------------------*/
-import { resizeAspectRatio, setupText, updateText } from './util/util.js';
-import { Shader, readShaderFile } from './util/shader.js';
+import { resizeAspectRatio, setupText, updateText } from '../util/util.js';
+import { Shader, readShaderFile } from '../util/shader.js';
 
 const canvas = document.getElementById('glCanvas');
 const gl = canvas.getContext('webgl2');
@@ -60,10 +60,10 @@ function setupKeyboardEvents() {
 
 function setupBuffers() {
     const vertices = new Float32Array([
-        -0.2, -0.2, 0.0,  // bottom left
-         0.2, -0.2, 0.0,  // bottom right
-        -0.2,  0.2, 0.0,  // top left
-         0.2,  0.2, 0.0   // top right
+        -0.1, -0.1, 0.0,  // bottom left
+         0.1, -0.1, 0.0,  // bottom right
+        -0.1,  0.1, 0.0,  // top left
+         0.1,  0.1, 0.0   // top right
     ]);
    
     vao = gl.createVertexArray();
