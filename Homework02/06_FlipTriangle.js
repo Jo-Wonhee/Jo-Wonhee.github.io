@@ -55,6 +55,9 @@ function setupKeyboardEvents() {
         else if (event.key === "ArrowRight") {
             offsetX += step;
         }
+
+        offsetX = clamp(offsetX, -0.9, 0.9);
+        offsetY = clamp(offsetY, -0.9, 0.9);
     });
 }
 
