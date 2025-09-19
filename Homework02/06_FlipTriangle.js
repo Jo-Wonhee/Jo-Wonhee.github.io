@@ -22,14 +22,14 @@ function initWebGL() {
         return false;
     }
 
-    canvas.width = 700;
-    canvas.height = 700;
+    canvas.width = 600;
+    canvas.height = 600;
 
     resizeAspectRatio(gl, canvas);
 
     // Initialize WebGL settings
     gl.viewport(0, 0, canvas.width, canvas.height);
-    gl.clearColor(0.1, 0.2, 0.3, 1.0);
+    gl.clearColor(0.0, 0.0, 0.0, 1.0);
     
     return true;
 }
@@ -41,37 +41,55 @@ async function initShader() {
 }
 
 function setupKeyboardEvents() {
-    document.addEventListener('keydown', (event) => {
-        if (event.key == 'f') {
-            //console.log("f key pressed");
-            updateText(textOverlay3, "f key pressed");
-            verticalFlip = -verticalFlip; 
+    window.addEventListener('keydown', (event) => {
+        if (event.key == 'ArrowUp') {
+            //console.log("ArrowUp key pressed");
+            if (vertices[10] < 1.0) {
+               vertices[1] = vertices[1]+0.01
+               vertices[4] = vertices[4]+0.01
+               vertices[7] = vertices[7]+0.01
+               vertices[10] = vertices[10]+0.01
+            }
         }
-        else if (event.key == 'r') {
-            //console.log("r key pressed");
-            updateText(textOverlay3, "r key pressed");
-            colorTag = "red";
+        else if (event.key == 'ArrowDown') {
+            //console.log("ArrowDown key pressed");
+            if (vertices[1] > -1.0) {
+               vertices[1] = vertices[1]-0.01
+               vertices[4] = vertices[4]-0.01
+               vertices[7] = vertices[7]-0.01
+               vertices[10] = vertices[10]-0.01
+            }
         }
-        else if (event.key == 'g') {
-            //console.log("g key pressed");
-            updateText(textOverlay3, "g key pressed");
-            colorTag = "green";
+        else if (event.key == 'ArrowLeft') {
+            //console.log("ArrowLeft key pressed");
+            if (vertices[0] > -1.0) {
+               vertices[0] = vertices[0]-0.01
+               vertices[3] = vertices[3]-0.01
+               vertices[6] = vertices[6]-0.01
+               vertices[9] = vertices[9]-0.01
+            }
         }
-        else if (event.key == 'b') {
-            //console.log("b key pressed");
-            updateText(textOverlay3, "b key pressed");
-            colorTag = "blue";
+        else if (event.key == 'ArrowRight') {
+            //console.log("ArrowRight key pressed");
+            if (vertices[3] < 1.0) {
+               vertices[0] = vertices[0]+0.01
+               vertices[3] = vertices[3]+0.01
+               vertices[6] = vertices[6]+0.01
+               vertices[9] = vertices[9]+0.01
+            }
         }
     });
 }
 
-function setupBuffers() {
-    const vertices = new Float32Array([
-        -0.5, -0.5, 0.0,  // Bottom left
-         0.5, -0.5, 0.0,  // Bottom right
-         0.0,  0.5, 0.0   // Top center
+uniform vertices = new Float32Array([
+        -0.1, -0.1, 0.0,  
+         0.1, -0.1, 0.0,  
+         0.1,  0.1, 0.0,
+        -0.1,  0.1, 0.0
     ]);
 
+function setupBuffers() {
+    
     vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
 
@@ -100,7 +118,7 @@ function render() {
     shader.setFloat("verticalFlip", verticalFlip);
 
     gl.bindVertexArray(vao);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
 
     requestAnimationFrame(() => render());
 }
