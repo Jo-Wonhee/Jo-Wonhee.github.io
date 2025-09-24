@@ -67,9 +67,9 @@ function setupKeyboardEvents() {
 function setupBuffers() {
     const vertices = new Float32Array([
         -0.1, -0.1, 0.0,  // bottom left
-         0.1, -0.1, 0.0,  // bottom right
         -0.1,  0.1, 0.0,  // top left
-         0.1,  0.1, 0.0   // top right
+         0.1,  0.1, 0.0,  // top right
+         0.1, -0.1, 0.0   // bottom right
     ]);
    
     vao = gl.createVertexArray();
@@ -91,7 +91,7 @@ function render() {
     shader.setVec2("uOffset", [offsetX, offsetY]);
 
     gl.bindVertexArray(vao);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
 
     requestAnimationFrame(() => render());
 }
