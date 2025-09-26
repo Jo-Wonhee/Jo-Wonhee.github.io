@@ -19,13 +19,15 @@ let isInitialized = false;  // main이 실행되는 순간 true로 change
 let shader;
 let vao;
 let positionBuffer; // 2D position을 위한 VBO (Vertex Buffer Object)
-let isDrawing = false; // mouse button을 누르고 있는 동안 true로 change
+let isDrawing = 0; // 0:초기상태, 1:원 그리는 중, 2:원 그린 후, 3: 선분 그리는 중, 4:최종 상태
 let startPoint = null;  // mouse button을 누른 위치
 let tempEndPoint = null; // mouse를 움직이는 동안의 위치
 let lines = []; // 그려진 선분들을 저장하는 array
 let textOverlay; // 1st line segment 정보 표시
 let textOverlay2; // 2nd line segment 정보 표시
+let textOverlay3; // 3rd line segment 정보 표시
 let axes = new Axes(gl, 0.85); // x, y axes 그려주는 object (see util.js)
+let Intersection = []; // 교차점을 저장하는 array
 
 // DOMContentLoaded event
 // 1) 모든 HTML 문서가 완전히 load되고 parsing된 후 발생
@@ -129,29 +131,29 @@ function setupMouseEvents() {
         const x = event.clientX - rect.left;  // canvas 내 x 좌표
         const y = event.clientY - rect.top;   // canvas 내 y 좌표
         
-        if (!isDrawing && lines.length < 2) { 
-            // 1번 또는 2번 선분을 그리고 있는 도중이 아닌 경우 (즉, mouse down 상태가 아닌 경우)
+        if ((isDrawing % 2 == 0) && lines.length < 2) { 
+            // 원 또는 선분을 그리고 있는 도중이 아닌 경우 (즉, mouse down 상태가 아닌 경우)
             // 캔버스 좌표를 WebGL 좌표로 변환하여 선분의 시작점을 설정
             let [glX, glY] = convertToWebGLCoordinates(x, y);
             startPoint = [glX, glY];
-            isDrawing = true; // 이제 mouse button을 놓을 때까지 계속 true로 둠. 즉, mouse down 상태가 됨
+            isDrawing += 1;
         }
     }
 
     function handleMouseMove(event) {
-        if (isDrawing) { // 1번 또는 2번 선분을 그리고 있는 도중인 경우
+        if (isDrawing % 2 == 1) { // 원 또는 선분을 그리고 있는 도중인 경우
             const rect = canvas.getBoundingClientRect();
             const x = event.clientX - rect.left;
             const y = event.clientY - rect.top;
             
             let [glX, glY] = convertToWebGLCoordinates(x, y);
-            tempEndPoint = [glX, glY]; // 임시 선분의 끝 point
+            tempEndPoint = [glX, glY]; // 임시 끝 point
             render();
         }
     }
 
     function handleMouseUp() {
-        if (isDrawing && tempEndPoint) {
+        if ((isDrawing % 2 == 1) && tempEndPoint) {
 
             // lines.push([...startPoint, ...tempEndPoint])
             //   : startPoint와 tempEndPoint를 펼쳐서 하나의 array로 합친 후 lines에 추가
@@ -163,16 +165,26 @@ function setupMouseEvents() {
             lines.push([...startPoint, ...tempEndPoint]); 
 
             if (lines.length == 1) {
-                updateText(textOverlay, "First line segment: (" + lines[0][0].toFixed(2) + ", " + lines[0][1].toFixed(2) + 
-                    ") ~ (" + lines[0][2].toFixed(2) + ", " + lines[0][3].toFixed(2) + ")");
-                updateText(textOverlay2, "Click and drag to draw the second line segment");
+                updateText(textOverlay, "Circle: center(" + lines[0][0].toFixed(2) + ", " + lines[0][1].toFixed(2) + 
+                    ") radius = " + (((lines[0][2]-lines[0][0])**2 + (lines[0][3]-lines[0][1])**2)**0.5).toFixed(2));
             }
             else { // lines.length == 2
-                updateText(textOverlay2, "Second line segment: (" + lines[1][0].toFixed(2) + ", " + lines[1][1].toFixed(2) + 
+                updateText(textOverlay2, "Line segment: (" + lines[1][0].toFixed(2) + ", " + lines[1][1].toFixed(2) + 
                     ") ~ (" + lines[1][2].toFixed(2) + ", " + lines[1][3].toFixed(2) + ")");
+                let IPN = Intersection.length % 2;
+                if (IPN == 2) {
+                    updateText(textOverlay3, "Intersection Points: 2 Point 1: (" + Intersection[0].toFixed(2) + 
+                                ", " + Intersection[1].toFixed(2) + ") Point 2: (" + Intersection[2].toFixed(2) + 
+                                ", " + Intersection[3].toFixed(2) + ")");
+                } else if (IPN == 1) {
+                    updateText(textOverlay3, "Intersection Points: 1 Point 1: (" + Intersection[0].toFixed(2) + 
+                                ", " + Intersection[1].toFixed(2) + ")");
+                } else {
+                    updateText(textOverlay3, "No intersection");
+                }
             }
 
-            isDrawing = false;
+            isDrawing += 1;
             startPoint = null;
             tempEndPoint = null;
             render();
@@ -194,15 +206,15 @@ function render() {
     // 저장된 선들 그리기
     let num = 0;
     for (let line of lines) {
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(line), gl.STATIC_DRAW);
+        gl.bindVertexArray(vao);
         if (num == 0) { // 첫 번째 선분인 경우, yellow
             shader.setVec4("u_color", [1.0, 1.0, 0.0, 1.0]);
+            gl.drawArrays(gl.LINES, 0, 2);
         }
         else { // num == 1 (2번째 선분인 경우), red
             shader.setVec4("u_color", [1.0, 0.0, 1.0, 1.0]);
         }
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(line), gl.STATIC_DRAW);
-        gl.bindVertexArray(vao);
-        gl.drawArrays(gl.LINES, 0, 2);
         num++;
     }
 
