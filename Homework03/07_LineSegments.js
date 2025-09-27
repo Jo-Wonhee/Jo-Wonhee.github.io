@@ -22,7 +22,7 @@ let positionBuffer; // 2D position을 위한 VBO (Vertex Buffer Object)
 let isDrawing = 0; // 0:초기상태, 1:원 그리는 중, 2:원 그린 후, 3: 선분 그리는 중, 4:최종 상태
 let startPoint = null;  // mouse button을 누른 위치
 let tempEndPoint = null; // mouse를 움직이는 동안의 위치
-let lines = []; // 그려진 선분들을 저장하는 array
+let lines = []; // 도형의 정보를 저장. lines = [[x1, y1, x2, y2, r], [x3, y3, x4, y4]]
 let textOverlay; // 1st line segment 정보 표시
 let textOverlay2; // 2nd line segment 정보 표시
 let textOverlay3; // 3rd line segment 정보 표시
@@ -152,6 +152,35 @@ function setupMouseEvents() {
         }
     }
 
+    function findIntersection(cx, cy, r, x1, y1, x2, y2) {
+        let dx = x2 - x1;
+        let dy = y2 - y1;
+        let fx = x1 - cx;
+        let fy = y1 - cy;
+    
+        let a = dx*dx + dy*dy;
+        let b = 2*(fx*dx + fy*dy);
+        let c = (fx*fx + fy*fy) - r*r;
+    
+        let D = b*b - 4*a*c;
+        let result = [];
+    
+        if (D >= 0) {
+            D = Math.sqrt(D);
+    
+            let t1 = (-b - D) / (2*a);
+            let t2 = (-b + D) / (2*a);
+    
+            if (t1 >= 0 && t1 <= 1) {
+                result.push([x1 + t1*dx, y1 + t1*dy]);
+            }
+            if (t2 >= 0 && t2 <= 1) {
+                result.push([x1 + t2*dx, y1 + t2*dy]);
+            }
+        }
+        return result; // [ [ix1, iy1], [ix2, iy2] ] 형태
+    }
+    
     function handleMouseUp() {
         if ((isDrawing % 2 == 1) && tempEndPoint) {
 
@@ -162,23 +191,34 @@ function setupMouseEvents() {
             // ex) lines = [[1, 2, 3, 4]] 이고 startPoint = [5, 6], tempEndPoint = [7, 8] 이면,
             //     lines = [[1, 2, 3, 4], [5, 6, 7, 8]] 이 됨
 
-            lines.push([...startPoint, ...tempEndPoint]); 
+            // 원을 그렸으면 반지름도 함께 lines에 저장
+            if (isDrawing == 1) {
+                let dx = tempEndPoint[0]-startPoint[0];
+                let dy = tempEndPoint[1]-startPoint[1];
+                let r = Math.sqrt(dx**2 + dy**2);
+                lines.push([...startPoint, ...tempEndPoint, r]); 
+            }
+            else { // 선분을 그렸으면 교차점을 Intersection에 저장
+                lines.push([...startPoint, ...tempEndPoint]);
+                Intersection = findIntersection(lines[0][0], lines[0][1], lines[0][4], lines[1][0], lines[1][1], lines[1][2], lines[1][3])
+            }
 
             if (lines.length == 1) {
+                
                 updateText(textOverlay, "Circle: center(" + lines[0][0].toFixed(2) + ", " + lines[0][1].toFixed(2) + 
-                    ") radius = " + (((lines[0][2]-lines[0][0])**2 + (lines[0][3]-lines[0][1])**2)**0.5).toFixed(2));
+                    ") radius = " + r.toFixed(2);
             }
             else { // lines.length == 2
                 updateText(textOverlay2, "Line segment: (" + lines[1][0].toFixed(2) + ", " + lines[1][1].toFixed(2) + 
                     ") ~ (" + lines[1][2].toFixed(2) + ", " + lines[1][3].toFixed(2) + ")");
                 let IPN = Intersection.length % 2;
                 if (IPN == 2) {
-                    updateText(textOverlay3, "Intersection Points: 2 Point 1: (" + Intersection[0].toFixed(2) + 
-                                ", " + Intersection[1].toFixed(2) + ") Point 2: (" + Intersection[2].toFixed(2) + 
-                                ", " + Intersection[3].toFixed(2) + ")");
+                    updateText(textOverlay3, "Intersection Points: 2 Point 1: (" + Intersection[0][0].toFixed(2) + 
+                                ", " + Intersection[0][1].toFixed(2) + ") Point 2: (" + Intersection[1][0].toFixed(2) + 
+                                ", " + Intersection[1][1].toFixed(2) + ")");
                 } else if (IPN == 1) {
-                    updateText(textOverlay3, "Intersection Points: 1 Point 1: (" + Intersection[0].toFixed(2) + 
-                                ", " + Intersection[1].toFixed(2) + ")");
+                    updateText(textOverlay3, "Intersection Points: 1 Point 1: (" + Intersection[0][0].toFixed(2) + 
+                                ", " + Intersection[0][1].toFixed(2) + ")");
                 } else {
                     updateText(textOverlay3, "No intersection");
                 }
@@ -208,25 +248,59 @@ function render() {
     for (let line of lines) {
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(line), gl.STATIC_DRAW);
         gl.bindVertexArray(vao);
-        if (num == 0) { // 첫 번째 선분인 경우, yellow
+        if (num == 0) { // 원인 경우, yellow
             shader.setVec4("u_color", [1.0, 1.0, 0.0, 1.0]);
-            gl.drawArrays(gl.LINES, 0, 2);
+            let circleVertices = []; // 근사원의 꼭짓점 array
+            let segments = 200 // 근사원의 꼭짓점 수
+            for (let i = 0; i <= segments; i++) {
+                let theta = 2.0 * Math.PI * i / segments;
+                let x = cx + r * Math.cos(theta);
+                let y = cy + r * Math.sin(theta);
+                circleVertices.push(x, y);
+            }
+            gl.drawArrays(gl.LINE_LOOP, 0, circleVertices.length / 2);
         }
-        else { // num == 1 (2번째 선분인 경우), red
+        else { // num == 1 선분인 경우, red
             shader.setVec4("u_color", [1.0, 0.0, 1.0, 1.0]);
+            gl.drawArrays(gl.LINES, 0, 2);
         }
         num++;
     }
 
     // 임시 선 그리기
-    if (isDrawing && startPoint && tempEndPoint) {
+    if (isDrawing % 2 == 1 && startPoint && tempEndPoint) {
         shader.setVec4("u_color", [0.5, 0.5, 0.5, 1.0]); // 임시 선분의 color는 회색
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([...startPoint, ...tempEndPoint]), 
                       gl.STATIC_DRAW);
         gl.bindVertexArray(vao);
-        gl.drawArrays(gl.LINES, 0, 2);
+        if (num == 0) { // 원인 경우
+            let circleVertices = []; // 근사원의 꼭짓점 array
+            let segments = 200 // 근사원의 꼭짓점 수
+            for (let i = 0; i <= segments; i++) {
+                let theta = 2.0 * Math.PI * i / segments;
+                let x = cx + r * Math.cos(theta);
+                let y = cy + r * Math.sin(theta);
+                circleVertices.push(x, y);
+            }
+            gl.drawArrays(gl.LINE_LOOP, 0, circleVertices.length / 2);
+        }
+        else { // num == 1 선분인 경우
+            gl.drawArrays(gl.LINES, 0, 2);
+        }
     }
 
+    // 교차점 그리기
+    if (Intersection.length > 0) {
+        for (let I in Intersection) {
+            let ix = I[0];
+            let iy = I[1];
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([ix, iy]), gl.STATIC_DRAW);
+            gl.bindVertexArray(vao);
+            shader.setVec4("u_color", [0.0, 1.0, 0.0, 1.0]); // 초록색 점
+            gl.drawArrays(gl.POINTS, 0, 1);
+        }
+    }
+    
     // axes 그리기
     axes.draw(mat4.create(), mat4.create()); // 두 개의 identity matrix를 parameter로 전달
 }
@@ -252,8 +326,9 @@ async function main() {
         shader.use();
 
         // 텍스트 초기화
-        textOverlay = setupText(canvas, "No line segment", 1);
-        textOverlay2 = setupText(canvas, "Click mouse button and drag to draw line segments", 2);
+        textOverlay = setupText(canvas, "", 1);
+        textOverlay2 = setupText(canvas, "", 2);
+        textOverlay3 = setupText(canvas, "", 3);
         
         // 마우스 이벤트 설정
         setupMouseEvents();
