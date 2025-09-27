@@ -163,22 +163,20 @@ function setupMouseEvents() {
         let c = (fx*fx + fy*fy) - r*r;
     
         let D = b*b - 4*a*c;
-        let result = [];
-    
+
         if (D >= 0) {
             D = Math.sqrt(D);
     
             let t1 = (-b - D) / (2*a);
             let t2 = (-b + D) / (2*a);
-    
             if (t1 >= 0 && t1 <= 1) {
-                result.push([x1 + t1*dx, y1 + t1*dy]);
+                Intersection.push([x1 + t1*dx, y1 + t1*dy]);
             }
             if (t2 >= 0 && t2 <= 1) {
-                result.push([x1 + t2*dx, y1 + t2*dy]);
+                Intersection.push([x1 + t2*dx, y1 + t2*dy]);
             }
         }
-        return result; // [ [ix1, iy1], [ix2, iy2] ] 형태
+        return; // Intersection은 [ [ix1, iy1], [ix2, iy2] ] 형태
     }
     
     function handleMouseUp() {
@@ -200,18 +198,18 @@ function setupMouseEvents() {
             }
             else { // 선분을 그렸으면 교차점을 Intersection에 저장
                 lines.push([...startPoint, ...tempEndPoint]);
-                Intersection = findIntersection(lines[0][0], lines[0][1], lines[0][4], lines[1][0], lines[1][1], lines[1][2], lines[1][3])
+                findIntersection(lines[0][0], lines[0][1], lines[0][4], lines[1][0], lines[1][1], lines[1][2], lines[1][3])
             }
 
             if (lines.length == 1) {
                 
                 updateText(textOverlay, "Circle: center(" + lines[0][0].toFixed(2) + ", " + lines[0][1].toFixed(2) + 
-                    ") radius = " + r.toFixed(2);
+                    ") radius = " + lines[0][4].toFixed(2));
             }
             else { // lines.length == 2
                 updateText(textOverlay2, "Line segment: (" + lines[1][0].toFixed(2) + ", " + lines[1][1].toFixed(2) + 
                     ") ~ (" + lines[1][2].toFixed(2) + ", " + lines[1][3].toFixed(2) + ")");
-                let IPN = Intersection.length % 2;
+                let IPN = Intersection.length;
                 if (IPN == 2) {
                     updateText(textOverlay3, "Intersection Points: 2 Point 1: (" + Intersection[0][0].toFixed(2) + 
                                 ", " + Intersection[0][1].toFixed(2) + ") Point 2: (" + Intersection[1][0].toFixed(2) + 
@@ -246,22 +244,24 @@ function render() {
     // 저장된 선들 그리기
     let num = 0;
     for (let line of lines) {
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(line), gl.STATIC_DRAW);
-        gl.bindVertexArray(vao);
         if (num == 0) { // 원인 경우, yellow
             shader.setVec4("u_color", [1.0, 1.0, 0.0, 1.0]);
             let circleVertices = []; // 근사원의 꼭짓점 array
             let segments = 200 // 근사원의 꼭짓점 수
             for (let i = 0; i <= segments; i++) {
                 let theta = 2.0 * Math.PI * i / segments;
-                let x = cx + r * Math.cos(theta);
-                let y = cy + r * Math.sin(theta);
+                let x = lines[0][0] + lines[0][4] * Math.cos(theta);
+                let y = lines[0][1] + lines[0][4] * Math.sin(theta);
                 circleVertices.push(x, y);
             }
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(circleVertices), gl.STATIC_DRAW);
+            gl.bindVertexArray(vao);
             gl.drawArrays(gl.LINE_LOOP, 0, circleVertices.length / 2);
         }
         else { // num == 1 선분인 경우, red
             shader.setVec4("u_color", [1.0, 0.0, 1.0, 1.0]);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(line), gl.STATIC_DRAW);
+            gl.bindVertexArray(vao);
             gl.drawArrays(gl.LINES, 0, 2);
         }
         num++;
@@ -270,30 +270,35 @@ function render() {
     // 임시 선 그리기
     if (isDrawing % 2 == 1 && startPoint && tempEndPoint) {
         shader.setVec4("u_color", [0.5, 0.5, 0.5, 1.0]); // 임시 선분의 color는 회색
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([...startPoint, ...tempEndPoint]), 
-                      gl.STATIC_DRAW);
-        gl.bindVertexArray(vao);
         if (num == 0) { // 원인 경우
             let circleVertices = []; // 근사원의 꼭짓점 array
             let segments = 200 // 근사원의 꼭짓점 수
             for (let i = 0; i <= segments; i++) {
                 let theta = 2.0 * Math.PI * i / segments;
-                let x = cx + r * Math.cos(theta);
-                let y = cy + r * Math.sin(theta);
+                let dx = tempEndPoint[0]-startPoint[0];
+                let dy = tempEndPoint[1]-startPoint[1];
+                let r = Math.sqrt(dx**2 + dy**2);
+                let x = startPoint[0] + r * Math.cos(theta);
+                let y = startPoint[1] + r * Math.sin(theta);
                 circleVertices.push(x, y);
             }
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(circleVertices), gl.STATIC_DRAW);
+            gl.bindVertexArray(vao);
             gl.drawArrays(gl.LINE_LOOP, 0, circleVertices.length / 2);
         }
         else { // num == 1 선분인 경우
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([...startPoint, ...tempEndPoint]), gl.STATIC_DRAW);
+            gl.bindVertexArray(vao);
             gl.drawArrays(gl.LINES, 0, 2);
         }
     }
 
     // 교차점 그리기
     if (Intersection.length > 0) {
-        for (let I in Intersection) {
-            let ix = I[0];
-            let iy = I[1];
+        console.log(Intersection);
+        for (let i = 0; i < Intersection.length; i++) {
+            let ix = Intersection[i][0];
+            let iy = Intersection[i][1];
             gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([ix, iy]), gl.STATIC_DRAW);
             gl.bindVertexArray(vao);
             shader.setVec4("u_color", [0.0, 1.0, 0.0, 1.0]); // 초록색 점
