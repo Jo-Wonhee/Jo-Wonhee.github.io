@@ -1,13 +1,6 @@
-/*-------------------------------------------------------------------------
-12_ArcBall.js
-
-- Viewing a 3D unit cube at origin with perspective projection
-- Rotating the cube by ArcBall interface (by left mouse button dragging)
----------------------------------------------------------------------------*/
-
 import { resizeAspectRatio, setupText, updateText, Axes } from '../util/util.js';
 import { Shader, readShaderFile } from '../util/shader.js';
-import { Cube } from '../util/cube.js';
+import { squarePyramid } from 'squarePyramid.js';
 import { Arcball } from '../util/arcball.js';
 
 const canvas = document.getElementById('glCanvas');
@@ -19,7 +12,7 @@ let isInitialized = false;
 let viewMatrix = mat4.create();
 let projMatrix = mat4.create();
 
-const cube = new Cube(gl);
+const squarePyramid = new squarePyramid(gl);
 const axes = new Axes(gl, 2.2); // create an Axes object with the length of axis 1.5
 
 // Arcball object: initial distance 5.0, rotation sensitivity 2.0, zoom sensitivity 0.0005
@@ -73,11 +66,11 @@ function render() {
 
     viewMatrix = arcball.getViewMatrix();
 
-    // drawing the cube
-    shader.use();  // using the cube's shader
+    // drawing the squarePyramid
+    shader.use();  // using the squarePyramid's shader
     shader.setMat4('u_view', viewMatrix);
     shader.setMat4('u_projection', projMatrix);
-    cube.draw(shader);
+    squarePyramid.draw(shader);
 
     // drawing the axes (using the axes's shader: see util.js)
     axes.draw(viewMatrix, projMatrix);
