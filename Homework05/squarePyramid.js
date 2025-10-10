@@ -18,7 +18,6 @@ let isInitialized = false;
 
 let viewMatrix = mat4.create();
 let projMatrix = mat4.create();
-let modelMatrix = mat4.create();
 
 const cube = new Cube(gl);
 const axes = new Axes(gl, 2.2); // create an Axes object with the length of axis 1.5
@@ -26,7 +25,6 @@ const axes = new Axes(gl, 2.2); // create an Axes object with the length of axis
 // Arcball object: initial distance 5.0, rotation sensitivity 2.0, zoom sensitivity 0.0005
 // default of rotation sensitivity = 1.5, default of zoom sensitivity = 0.001
 let initialDistance = 5.0; 
-let arcBallMode = 'CAMERA';     // 'CAMERA' or 'MODEL'
 const arcball = new Arcball(canvas, initialDistance, { rotation: 2.0, zoom: 0.0005 });
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -45,27 +43,6 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error('program terminated with error:', error);
     });
 });
-
-function setupKeyboardEvents() {
-    document.addEventListener('keydown', (event) => {
-        if (event.key == 'a') {
-            // console.log("a key pressed");
-            if (arcBallMode == 'CAMERA') {
-                arcBallMode = 'MODEL';
-            }
-            else {
-                arcBallMode = 'CAMERA';
-            }
-            updateText(textOverlay, "arcball mode: " + arcBallMode);
-        }
-        else if (event.key == 'r') {
-            arcball.reset();
-            modelMatrix = mat4.create(); 
-            arcBallMode = 'CAMERA';
-            updateText(textOverlay, "arcball mode: " + arcBallMode);
-        }
-    });
-}
 
 function initWebGL() {
     if (!gl) {
@@ -94,17 +71,10 @@ function render() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
 
-    if (arcBallMode == 'CAMERA') {
-        viewMatrix = arcball.getViewMatrix();
-    }
-    else { // arcBallMode == 'MODEL'
-        modelMatrix = arcball.getModelRotMatrix();
-        viewMatrix = arcball.getViewCamDistanceMatrix();
-    }
+    viewMatrix = arcball.getViewMatrix();
 
     // drawing the cube
     shader.use();  // using the cube's shader
-    shader.setMat4('u_model', modelMatrix);
     shader.setMat4('u_view', viewMatrix);
     shader.setMat4('u_projection', projMatrix);
     cube.draw(shader);
