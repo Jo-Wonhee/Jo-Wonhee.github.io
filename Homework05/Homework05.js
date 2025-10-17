@@ -7,7 +7,7 @@
 
 import { resizeAspectRatio, setupText, updateText, Axes } from '../util/util.js';
 import { Shader, readShaderFile } from '../util/shader.js';
-import { squarePyramid } from '../util/squarePyramid.js';
+import { squarePyramid } from 'squarePyramid.js';
 import { Arcball } from '../util/arcball.js';
 
 const canvas = document.getElementById('glCanvas');
