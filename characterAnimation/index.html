@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>FBX Character + Idle/Walk/Turn</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: #000; }
+    #hud {
+      position: fixed; left: 12px; top: 12px;
+      padding: 10px 12px; border-radius: 10px;
+      background: rgba(0,0,0,0.55); color: #fff;
+      font: 13px/1.45 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      user-select: none;
+    }
+    #hud kbd {
+      display: inline-block; padding: 1px 6px; border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.35);
+      background: rgba(255,255,255,0.08);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      margin: 0 2px;
+    }
+  </style>
+
+  <!-- importmap: same style as the provided examples -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.159.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.159.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="hud">
+    <div><kbd>W</kbd> : Walk (hold)</div>
+    <div><kbd>T</kbd> : Turn 180°</div>
+    <div style="opacity:.8;margin-top:6px">TIP: turn이 끝난 직후 바로 방향이 바뀌고, W 상태에 따라 Idle/Walk로 복귀</div>
+  </div>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
