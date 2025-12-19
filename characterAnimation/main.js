@@ -1,9 +1,9 @@
-// main.js (v5)
-// Changes:
-// 1) characterScale 기본값 0.01 (이전의 10배) + 카메라 초기 위치 조정
-// 2) corner 토글 순간 idle/walk "고정" 문제를 근본적으로 제거:
-//    - 매 프레임 원하는 상태(desiredAction)를 계산해서 currentAction과 다르면 즉시 전환
-//      (GUI 포커스/체크박스 클릭으로 이벤트 흐름이 꼬여도 상태가 잠기지 않게 함)
+// main.js (v7)
+// Fixes:
+// - characterScale 초기값 = 0.01 유지
+// - isLeft(초기 true) 도입 + "turn 한 번이 작동될 때마다" 토글: startTurn()에서 토글
+// - 중력 회전 corner 모드에서 yaw 방향이 isLeft에 따라 좌/우로 바뀌도록 적용
+//   (pitch 적용 후 up 축을 다시 계산해서 yaw에 사용)
 
 import * as THREE from 'three';
 import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
@@ -41,7 +41,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.001, 100000);
-// 스케일 0.01에 맞춘 카메라 (v4의 10배 정도)
+// scale 0.01 기준 카메라
 camera.position.set(-2.0, 1.5, 6.0);
 scene.add(camera);
 
@@ -98,20 +98,29 @@ function loadFBX(filename) {
 }
 
 // -----------------------------
-// GUI
+// GUI / Params
 // -----------------------------
 const params = {
   corner: false,
   turnSpeedDeg: 60,     // max 90
   distance: 0,          // 0=sole, +이면 sole 아래, max 4
-  characterScale: 0.01, // v4의 10배
+  characterScale: 0.01, // 유지
 };
+
+const gui = new GUI();
+gui.add(params, 'corner').name('corner');
+gui.add(params, 'turnSpeedDeg', 0, 90, 1).name('gravity turn speed');
+gui.add(params, 'distance', 0, 4, 0.01).name('distance');
+gui.add(params, 'characterScale', 0.001, 0.05, 0.001).name('character scale').onChange(v => {
+  actorGroup.scale.setScalar(v);
+});
 
 // -----------------------------
 // Animation State
 // -----------------------------
 const actorGroup = new THREE.Group();
 scene.add(actorGroup);
+actorGroup.scale.setScalar(params.characterScale);
 
 let characterRoot = null;
 let mixer = null;
@@ -122,6 +131,9 @@ let currentAction = null;
 let wDown = false;
 let isTurning = false;
 
+// 중력 회전 좌/우 토글
+let isLeft = true; // initial True
+
 let turnDuration = 0;
 const WORLD_UP = new THREE.Vector3(0, 1, 0);
 const q180 = new THREE.Quaternion().setFromAxisAngle(WORLD_UP, Math.PI);
@@ -131,22 +143,8 @@ const turnEndQuat = new THREE.Quaternion();
 const clock = new THREE.Clock();
 let soleLocalY = 0;
 
-// scale 적용
-actorGroup.scale.setScalar(params.characterScale);
-
-// GUI 구성
-const gui = new GUI();
-gui.add(params, 'corner').name('corner');
-gui.add(params, 'turnSpeedDeg', 0, 90, 1).name('gravity turn speed');
-gui.add(params, 'distance', 0, 4, 0.01).name('distance');
-gui.add(params, 'characterScale', 0.001, 0.05, 0.001).name('character scale').onChange(v => {
-  actorGroup.scale.setScalar(v);
-});
-
 // 포커스 빠지면 stuck 방지
-window.addEventListener('blur', () => {
-  wDown = false;
-});
+window.addEventListener('blur', () => { wDown = false; });
 
 // -----------------------------
 // Helpers
@@ -167,16 +165,13 @@ function switchAction(next, fade = FADE) {
 }
 
 function desiredLocomotionAction() {
-  // turn 중엔 locomotion 스위치 금지
   if (isTurning) return null;
   return wDown ? actions.walk : actions.idle;
 }
 
 function enforceStateEachFrame() {
   const desired = desiredLocomotionAction();
-  if (desired && desired !== currentAction) {
-    switchAction(desired);
-  }
+  if (desired && desired !== currentAction) switchAction(desired);
 }
 
 function getActorAxes() {
@@ -203,10 +198,13 @@ function getSoleWorld() {
 }
 
 // -----------------------------
-// Turn180 (same approach as before)
+// Turn180
 // -----------------------------
 function startTurn() {
   if (!actions.turn || isTurning) return;
+
+  // turn 한 번이 작동될 때마다 토글 (요구사항)
+  isLeft = !isLeft;
 
   isTurning = true;
 
@@ -230,7 +228,6 @@ function onMixerFinished(e) {
   actorGroup.quaternion.copy(turnEndQuat);
   isTurning = false;
 
-  // turn 종료 직후 즉시 상태 복구 (W 상태에 따라)
   enforceStateEachFrame();
 }
 
@@ -278,7 +275,7 @@ async function init() {
   const box = new THREE.Box3().setFromObject(characterRoot);
   soleLocalY = box.min.y;
 
-  // 타겟도 bbox 기반으로 재조정 (현재 스케일 반영)
+  // orbit target 재조정
   const size = box.getSize(new THREE.Vector3());
   orbitControls.target.set(0, (size.y * params.characterScale) * 0.45, 0);
   orbitControls.update();
@@ -293,6 +290,7 @@ async function init() {
   actions.idle = mixer.clipAction(idleObj.animations[0]);
   actions.walk = mixer.clipAction(walkObj.animations[0]);
 
+  // Turn clip: yaw 본 quaternion 트랙 제거
   const rawTurnClip = turnObj.animations[0];
   const yawBoneName = inferYawBoneName(rawTurnClip, characterRoot);
   const strippedTurnClip = stripQuaternionTracksForNode(rawTurnClip, yawBoneName);
@@ -303,10 +301,11 @@ async function init() {
   actions.idle.setLoop(THREE.LoopRepeat);
   actions.walk.setLoop(THREE.LoopRepeat);
 
-  // 초기 상태 강제
+  // 초기 상태
   wDown = false;
   isTurning = false;
   switchAction(actions.idle, 0);
+
   animate();
 }
 
@@ -322,21 +321,13 @@ window.addEventListener('keyup', onKeyUp, false);
 function onKeyDown(e) {
   const key = e.key.toLowerCase();
 
-  if (key === 'w') {
-    wDown = true;
-  }
-
-  if (key === 't') {
-    if (!isTurning) startTurn();
-  }
+  if (key === 'w') wDown = true;
+  if (key === 't') startTurn();
 }
 
 function onKeyUp(e) {
   const key = e.key.toLowerCase();
-
-  if (key === 'w') {
-    wDown = false;
-  }
+  if (key === 'w') wDown = false;
 }
 
 function onWindowResize() {
@@ -354,7 +345,6 @@ function animate() {
   const dt = clock.getDelta();
   if (mixer) mixer.update(dt);
 
-  // 매 프레임 상태 고정(잠김 방지)
   if (actions.idle && actions.walk && actions.turn) {
     enforceStateEachFrame();
   }
@@ -368,20 +358,26 @@ function animate() {
 
   const speed = BASE_WALK_SPEED * params.characterScale;
 
-  // 이동: 걷기 중일 때만
+  // 이동/중력 회전: 걷기 중일 때만
   if (characterRoot && !isTurning && wDown && currentAction === actions.walk) {
     if (!params.corner) {
       const { forward } = getActorAxes();
       actorGroup.position.addScaledVector(forward, speed * dt);
     } else {
+      // pivot: sole - up * distance  (distance>0 => below sole)
       const { up, right } = getActorAxes();
       const soleW = getSoleWorld();
       const pivotW = soleW.clone().addScaledVector(up, -params.distance);
 
       const ang = THREE.MathUtils.degToRad(params.turnSpeedDeg) * dt;
 
-      rotateGroupAroundWorldPoint(actorGroup, right, +ang, pivotW); // pitch down
-      rotateGroupAroundWorldPoint(actorGroup, up, +ang, pivotW);    // yaw left
+      // pitch down 먼저
+      rotateGroupAroundWorldPoint(actorGroup, right, +ang, pivotW);
+
+      // pitch 후 up 축 재계산해서 yaw 적용 (좌/우 토글)
+      const up2 = LOCAL_UP.clone().applyQuaternion(actorGroup.quaternion).normalize();
+      const yaw = isLeft ? +ang : -ang;
+      rotateGroupAroundWorldPoint(actorGroup, up2, yaw, pivotW);
 
       const f2 = LOCAL_FORWARD.clone().applyQuaternion(actorGroup.quaternion).normalize();
       actorGroup.position.addScaledVector(f2, speed * dt);
