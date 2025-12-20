@@ -442,13 +442,41 @@ function animate() {
       cornerAngle = Math.min(cornerAngle + angStep, TARGET_CORNER_RAD);
       const alpha = cornerAngle / TARGET_CORNER_RAD;
 
-      // 1) 절대 포즈: start로 리셋 후 "절대 목표 자세"로 보간
-      actorGroup.position.copy(cornerStartPos);
-      actorGroup.quaternion.copy(cornerStartQuat).slerp(cornerEndQuat, alpha);
-      actorGroup.updateMatrixWorld(true);
+      // 1) 절대 포즈: start로 리셋 후, slerp 대신 "축 회전"으로 자세를 만든다
+actorGroup.position.copy(cornerStartPos);
+actorGroup.quaternion.copy(cornerStartQuat);
 
-      // 2) sole 위치를 목표로 보정
-      const desiredSole = new THREE.Vector3().lerpVectors(cornerStartSoleW, cornerTargetSoleW, alpha);
+// orientation (no slerp)
+if (isLeft) {
+  // True: 이전 forward(F0) -> 이후 up 이 되도록 (pitch around R0, then yaw around F0)
+  actorGroup.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(R0, cornerAngle));
+  actorGroup.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(F0, +cornerAngle));
+} else {
+  // False: v16에서 맞았던 매핑 유지 (final up = -R0, final forward = -U0)
+actorGroup.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(F0, -cornerAngle));
+actorGroup.quaternion.premultiply(
+  new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3().copy(R0).multiplyScalar(-1), +cornerAngle)
+);
+// Fix: 결과가 up/forward가 둘 다 반대로 나오는 경우(=F0축 180도 차이) 보정
+actorGroup.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(F0, Math.PI * alpha));
+}
+actorGroup.updateMatrixWorld(true);
+
+// 2) sole 목표: 직선 보간이 아니라, (sole - U0*d) 를 중심으로 사분원 경로를 따른다
+const d = params.distance;
+const pivot = new THREE.Vector3().copy(cornerStartSoleW).addScaledVector(U0, -d);
+
+// pivot -> sole 벡터(반지름)
+const v = new THREE.Vector3().copy(U0).multiplyScalar(d);
+
+// up/forward 성분: R0 축으로 회전(사분원)
+v.applyAxisAngle(R0, cornerAngle);
+
+// 좌/우 성분: a만큼 회전했을 때, ±distance*sin(a) 만큼 R0 방향으로 이동
+const yawSign = isLeft ? +1 : -1;
+const lateral = new THREE.Vector3().copy(R0).multiplyScalar(yawSign * d * Math.sin(cornerAngle));
+
+const desiredSole = pivot.add(v).add(lateral);
       const curSole = getSoleWorld();
       const delta = desiredSole.sub(curSole);
       actorGroup.position.add(delta);
