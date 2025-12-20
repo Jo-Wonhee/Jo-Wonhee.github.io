@@ -85,13 +85,29 @@ gridHelper.material.opacity = 0.2;
 gridHelper.material.transparent = true;
 scene.add(gridHelper);
 
-// Cube
-const refCube = new THREE.Mesh(
-  new THREE.BoxGeometry(CUBE_SIZE, CUBE_SIZE, CUBE_SIZE),
+// Shapes
+const cube1 = new THREE.Mesh(
+  new THREE.BoxGeometry(2, 2, 2),
   new THREE.MeshNormalMaterial()
 );
-refCube.position.set(0, CUBE_CENTER_Y, 0);
-scene.add(refCube);
+cube1.position.set(2, 1, 0);
+scene.add(cube1);
+
+const cube2 = new THREE.Mesh(
+  new THREE.BoxGeometry(2, 2, 2),
+  new THREE.MeshNormalMaterial()
+);
+cube2.position.set(0, 1, -1);
+scene.add(cube2);
+
+const cyl = new THREE.Mesh(
+  new THREE.CylinderGeometry(1, 1, 2, 32),
+  new THREE.MeshNormalMaterial()
+);
+// center at (0,1,0), axis along +X
+cyl.position.set(0, 1, 0);
+cyl.rotation.z = Math.PI / 2;
+scene.add(cyl);
 
 // -----------------------------
 // Loader
